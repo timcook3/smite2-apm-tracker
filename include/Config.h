@@ -7,9 +7,16 @@ namespace apm {
 // Application settings, loaded from an INI-style file (key=value per line,
 // '#' starts a comment). Missing file or keys fall back to defaults.
 struct Config {
-    // Host pinged to measure latency. Smite 2 servers cannot be discovered
-    // reliably from outside the game, so this should be set to the closest
-    // Hi-Rez/AWS region endpoint or any host representative of your route.
+    // When true (default), the tracker locates the running game process,
+    // reads its established server connections, and measures latency to the
+    // actual server. When false, it always pings `pingHost`.
+    bool autoDetectServer = true;
+
+    // Executable name of the game process used for auto-detection.
+    std::string gameProcessName = "Smite2-Win64-Shipping.exe";
+
+    // Fallback host pinged when the game process or its server connection
+    // cannot be found (or when auto-detection is disabled).
     std::string pingHost = "1.1.1.1";
 
     // Interval between ping probes, in milliseconds.

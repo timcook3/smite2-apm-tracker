@@ -1,31 +1,48 @@
 #pragma once
 
-#include <atomic>
 #include <condition_variable>
 #include <mutex>
 #include <string>
 #include <thread>
 
+#include "Config.h"
+#include "ServerDetector.h"
+
 namespace apm {
 
-// Periodically pings a host on a background thread and exposes the most
-// recent round-trip time.
+// Measures latency on a background thread and exposes the most recent
+// round-trip time.
+//
+// In "auto" mode it locates the game process, reads its established remote
+// endpoints, and measures RTT to the actual server: first with a TCP
+// handshake probe against the server's own port (no privileges needed),
+// falling back to an ICMP echo to the server's address. If the game is not
+// running, it falls back to the configured host.
+//
+// In "host" mode it always ICMP-pings the configured host.
 class PingMonitor {
 public:
-    // Latency in milliseconds, or a failure state.
-    struct Result {
-        bool valid = false;    // true if the last probe succeeded
-        unsigned latencyMs = 0;
+    // How the latest latency value was obtained.
+    enum class Source {
+        None,          // no successful probe yet
+        GameServer,    // measured against a detected game-server endpoint
+        FallbackHost,  // measured against the configured ping_host
     };
 
-    PingMonitor(std::string host, unsigned intervalMs, unsigned timeoutMs);
+    struct Result {
+        bool valid = false;
+        unsigned latencyMs = 0;
+        Source source = Source::None;
+    };
+
+    explicit PingMonitor(const Config& config);
     ~PingMonitor();
 
     PingMonitor(const PingMonitor&) = delete;
     PingMonitor& operator=(const PingMonitor&) = delete;
 
-    // Starts the background probing thread. Returns false if the host could
-    // not be resolved or the ICMP handle could not be created.
+    // Starts the background probing thread. Returns false if networking
+    // could not be initialized.
     bool start();
 
     // Stops the background thread. Safe to call multiple times.
@@ -36,14 +53,22 @@ public:
 
 private:
     void run();
-    bool probeOnce();
+    // One measurement cycle; returns the result to publish.
+    Result probe();
+    // TCP handshake RTT to `endpoint`; returns false on failure.
+    bool tcpProbe(const ServerDetector::Endpoint& endpoint, unsigned& latencyMs) const;
+    // ICMP echo RTT to `address` (IPv4, network byte order).
+    bool icmpProbe(unsigned long address, unsigned& latencyMs) const;
 
-    const std::string host_;
-    const unsigned intervalMs_;
-    const unsigned timeoutMs_;
+    const Config config_;
 
-    unsigned long address_ = 0;  // IPv4 address, network byte order
+    unsigned long fallbackAddress_ = 0;  // resolved ping_host
     void* icmpHandle_ = nullptr;
+    bool wsaInitialized_ = false;
+
+    // Cached detected server endpoint; re-detected when probing it fails.
+    ServerDetector::Endpoint server_;
+    bool serverKnown_ = false;
 
     std::thread thread_;
     std::mutex stopMutex_;

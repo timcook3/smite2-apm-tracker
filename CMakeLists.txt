@@ -14,6 +14,7 @@ add_executable(smite2_apm_tracker WIN32
     src/InputHook.cpp
     src/ApmCalculator.cpp
     src/PingMonitor.cpp
+    src/ServerDetector.cpp
     src/OverlayWindow.cpp
 )
 

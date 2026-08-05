@@ -23,7 +23,11 @@ std::wstring formatPingLine(const apm::PingMonitor::Result& result) {
     if (!result.valid) {
         return L"Ping  --";
     }
-    return L"Ping  " + std::to_wstring(result.latencyMs) + L" ms";
+    // Mark fallback-host measurements so it is clear when the value is not
+    // the actual game-server latency.
+    const wchar_t* suffix =
+        (result.source == apm::PingMonitor::Source::FallbackHost) ? L" ms*" : L" ms";
+    return L"Ping  " + std::to_wstring(result.latencyMs) + suffix;
 }
 
 }  // namespace
@@ -40,11 +44,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         return 1;
     }
 
-    apm::PingMonitor pingMonitor{config.pingHost, config.pingIntervalMs, config.pingTimeoutMs};
+    apm::PingMonitor pingMonitor{config};
     const bool pingAvailable = pingMonitor.start();
     if (!pingAvailable) {
         MessageBoxW(nullptr,
-                    L"Ping monitor could not start (host unresolvable or ICMP unavailable).\n"
+                    L"Ping monitor could not start (networking unavailable).\n"
                     L"The overlay will show APM only.",
                     L"Smite 2 APM Tracker", MB_ICONWARNING);
     }

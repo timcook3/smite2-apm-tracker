@@ -14,17 +14,30 @@ external overlays, it cannot draw over exclusive fullscreen.
 | `Config` | Loads `config.ini` (ping host, intervals, overlay position/size) |
 | `InputHook` | Global `WH_KEYBOARD_LL` / `WH_MOUSE_LL` hooks; counts key and mouse-button presses |
 | `ApmCalculator` | Thread-safe sliding-window APM computation |
-| `PingMonitor` | Background ICMP echo (`IcmpSendEcho`) probing with latest-result cache |
+| `ServerDetector` | Finds the Smite 2 process and its established server connections |
+| `PingMonitor` | Measures RTT to the detected server (TCP handshake probe, ICMP fallback), or to a configured fallback host |
 | `OverlayWindow` | Layered (`UpdateLayeredWindow`), topmost, click-through GDI overlay |
 | `main` | Wires the modules together and runs the message loop |
 
-## Ping host
+## How ping is measured
 
-Smite 2 does not expose its game-server address in a supported way, so the
-tracker pings a configurable host (`ping_host` in `config.ini`). Smite 2
-servers run on AWS; set the host to an endpoint in your play region (e.g.
-`ec2.us-east-1.amazonaws.com` for NA-East) to get a number representative of
-your in-game latency.
+With `auto_detect_server = true` (default), the tracker finds the running
+Smite 2 process (`game_process_name`), reads its established remote
+connections from the Windows TCP table, and measures round-trip time to the
+actual server endpoint — first with a TCP handshake probe against the
+server's own port (needs no privileges and works even when ICMP is
+blocked), falling back to an ICMP echo. If the endpoint disappears (match
+ended, reconnect), it is re-detected automatically.
+
+Limitation: Windows does not expose remote endpoints of UDP sockets, and
+Smite 2's realtime gameplay traffic is UDP. Detection therefore uses the
+game's TCP connections, which terminate in the same server infrastructure
+and are representative of the route, but may differ slightly from the ping
+the game itself reports.
+
+When the game or its connection cannot be detected, the tracker pings the
+configured `ping_host` instead and marks the value with a trailing `*` in
+the overlay.
 
 ## Building
 

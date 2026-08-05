@@ -61,7 +61,15 @@ Config Config::load(const std::string& path) {
             continue;
         }
 
-        if (key == "ping_host") {
+        if (key == "auto_detect_server") {
+            if (value == "true" || value == "1") {
+                config.autoDetectServer = true;
+            } else if (value == "false" || value == "0") {
+                config.autoDetectServer = false;
+            }
+        } else if (key == "game_process_name") {
+            config.gameProcessName = value;
+        } else if (key == "ping_host") {
             config.pingHost = value;
         } else if (key == "ping_interval_ms") {
             parseUnsigned(value, config.pingIntervalMs);
