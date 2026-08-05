@@ -1,0 +1,113 @@
+# Smite 2 APM Tracker
+
+A lightweight Windows overlay for Smite 2 styled after the game's own UI
+(dark panel, gold accents). It shows live **APM**, **average APM**, **peak
+APM**, **EAPM** (effective APM — rapid repeats of the same input are not
+counted), a **session timer**, and your current **ping**, with **Start /
+Stop** buttons to control the tracking session and a **Heatmap** button
+that opens a keyboard heatmap of the session's key presses. Inputs are only
+counted while the Smite 2 client is the foreground window. Both windows are
+always-on-top and can be dragged anywhere on screen; the main panel can
+also be resized from its edges/corners (the whole layout scales) and has
+minimize / maximize / close buttons — minimize hides it to the system tray
+(click the tray icon to restore, right-click for Restore/Exit).
+
+Works with Smite 2 in **borderless windowed** mode (recommended). Like all
+external overlays, it cannot draw over exclusive fullscreen.
+
+## Modules
+
+| Module | Responsibility |
+| --- | --- |
+| `Config` | Loads `config.ini` (ping host, intervals, overlay position/size) |
+| `InputHook` | Global `WH_KEYBOARD_LL` / `WH_MOUSE_LL` hooks; reports each press with its hook event timestamp for accuracy |
+| `GameFocus` | Filters input to when the Smite 2 window is in the foreground |
+| `ApmCalculator` | Thread-safe session stats: current/average/peak APM and EAPM, with start/stop control |
+| `ServerDetector` | Finds the Smite 2 process and its established server connections |
+| `PingMonitor` | Measures RTT to the detected server (TCP handshake probe, ICMP fallback), or to a configured fallback host |
+| `OverlayWindow` | Layered (`UpdateLayeredWindow`), topmost, draggable Smite 2-styled panel with Start/Stop/Heatmap buttons |
+| `HeatmapWindow` | Keyboard heatmap of per-key press counts (white → yellow → orange → red) |
+| `main` | Wires the modules together and runs the message loop |
+
+## How ping is measured
+
+With `auto_detect_server = true` (default), the tracker finds the running
+Smite 2 process (`game_process_name`), reads its established remote
+connections from the Windows TCP table, and measures round-trip time to the
+actual server endpoint — first with a TCP handshake probe against the
+server's own port (needs no privileges and works even when ICMP is
+blocked), falling back to an ICMP echo. If the endpoint disappears (match
+ended, reconnect), it is re-detected automatically.
+
+Limitation: Windows does not expose remote endpoints of UDP sockets, and
+Smite 2's realtime gameplay traffic is UDP. Detection therefore uses the
+game's TCP connections, which terminate in the same server infrastructure
+and are representative of the route, but may differ slightly from the ping
+the game itself reports.
+
+When the game or its connection cannot be detected, the tracker pings the
+configured `ping_host` instead and marks the value with a trailing `*` in
+the overlay.
+
+## Building
+
+### On Windows (Visual Studio or MinGW)
+
+```
+cmake -B build
+cmake --build build --config Release
+```
+
+### Cross-compiling from Linux (MinGW-w64)
+
+```
+sudo apt install g++-mingw-w64-x86-64 cmake
+cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-w64-toolchain.cmake -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+```
+
+The result is a single static `smite2_apm_tracker.exe`. Put `config.ini`
+next to it and run it before or during a game session. Tracking starts
+automatically; use the Stop/Start buttons to freeze or reset a session.
+Drag the panel to reposition it, drag its edges to resize it, and use the
+header's minimize (to tray) / maximize / close buttons.
+
+## Stats
+
+- **APM** — actions in the sliding window (default 60 s), per minute.
+- **Average APM** — total actions over the whole session.
+- **Peak APM** — highest sliding-window APM observed this session.
+- **EAPM** — effective APM: repeats of the same key/button within 500 ms
+  count only once, filtering out spam clicking/key mashing.
+- **Time** — how long the current session has been recording.
+
+Accuracy: actions are timestamped with the input hook's own event time
+(not the moment the event is processed), so APM is unaffected by hook
+processing delay, and inputs made outside the game window are excluded
+(`only_count_game_input`).
+
+The header shows the tracker state: **LIVE** (tracking, game focused),
+**NO GAME** (tracking, but the Smite 2 window is not in the foreground —
+input is not being counted), or **PAUSED** (stopped). If your stats stay at
+0, check for NO GAME: either the game isn't focused or `game_process_name`
+in config.ini doesn't match the game's process name in Task Manager →
+Details. Set `only_count_game_input = false` to count input everywhere.
+
+## Keyboard heatmap
+
+The HEATMAP button toggles a keyboard view where each key shows its press
+count for the session, colored from **white** (least pressed) through
+**yellow** and **orange** to **red** (most pressed); unpressed keys stay
+dark. It updates live while tracking.
+
+## Configuration
+
+See the comments in [`config.ini`](config.ini). All keys are optional;
+missing or malformed values fall back to safe defaults.
+
+## Anti-cheat note
+
+The tracker only *reads* input globally and never touches the game process,
+injects code, or sends input — the same mechanism used by common APM tools.
+Still, use third-party tools at your own discretion under Hi-Rez's terms of
+service.
