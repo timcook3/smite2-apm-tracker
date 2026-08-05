@@ -20,6 +20,10 @@ struct Config {
     // in the foreground; typing in other apps does not affect APM.
     bool onlyCountGameInput = true;
 
+    // When true, writes apm_tracker.log next to the executable with
+    // periodic diagnostics (hook events, foreground process, focus state).
+    bool debugLog = false;
+
     // Fallback host pinged when the game process or its server connection
     // cannot be found (or when auto-detection is disabled).
     std::string pingHost = "1.1.1.1";

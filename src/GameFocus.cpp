@@ -5,16 +5,21 @@
 namespace apm {
 namespace {
 
-bool equalsIgnoreCase(const std::wstring& a, const std::wstring& b) {
-    if (a.size() != b.size()) {
-        return false;
+std::wstring toLower(const std::wstring& s) {
+    std::wstring out(s.size(), L'\0');
+    for (size_t i = 0; i < s.size(); ++i) {
+        out[i] = static_cast<wchar_t>(std::towlower(s[i]));
     }
-    for (size_t i = 0; i < a.size(); ++i) {
-        if (std::towlower(a[i]) != std::towlower(b[i])) {
-            return false;
-        }
-    }
-    return true;
+    return out;
+}
+
+// The configured name may not exactly match the shipped executable across
+// game updates, so accept an exact match or any process whose name
+// contains "smite".
+bool matchesGame(const std::wstring& processName, const std::wstring& configured) {
+    const std::wstring name = toLower(processName);
+    return !name.empty() &&
+           (name == toLower(configured) || name.find(L"smite") != std::wstring::npos);
 }
 
 // Executable base name of a process, or empty if it cannot be queried.
@@ -52,9 +57,19 @@ bool GameFocus::isGameFocused() {
     }
     if (pid != cachedPid_) {
         cachedPid_ = pid;
-        cachedMatch_ = equalsIgnoreCase(processBaseName(pid), processName_);
+        cachedMatch_ = matchesGame(processBaseName(pid), processName_);
     }
     return cachedMatch_;
+}
+
+std::wstring GameFocus::foregroundProcessName() {
+    HWND foreground = GetForegroundWindow();
+    if (!foreground) {
+        return {};
+    }
+    DWORD pid = 0;
+    GetWindowThreadProcessId(foreground, &pid);
+    return pid ? processBaseName(pid) : std::wstring{};
 }
 
 }  // namespace apm

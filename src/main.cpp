@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <fstream>
 #include <string>
 
 #include "ApmCalculator.h"
@@ -58,6 +59,30 @@ apm::OverlayState buildState(const apm::ApmStats& stats,
 
 std::wstring toWide(const std::string& s) {
     return std::wstring(s.begin(), s.end());
+}
+
+std::string toNarrow(const std::wstring& s) {
+    std::string out;
+    out.reserve(s.size());
+    for (wchar_t c : s) {
+        out.push_back(c < 128 ? static_cast<char>(c) : '?');
+    }
+    return out;
+}
+
+// Periodic diagnostics: shows whether Windows delivers input to the hooks
+// at all, what process is in the foreground, and whether the focus filter
+// is blocking. Enabled with `debug_log = true` in config.ini.
+void writeDebugLog(std::ofstream& log, const apm::ApmStats& stats,
+                   bool gameFocused) {
+    log << "raw_hook_events=" << apm::InputHook::rawEventCount()
+        << " counted_actions=" << stats.totalActions
+        << " apm=" << stats.currentApm
+        << " tracking=" << (stats.tracking ? 1 : 0)
+        << " game_focused=" << (gameFocused ? 1 : 0)
+        << " foreground="
+        << toNarrow(apm::GameFocus::foregroundProcessName()) << '\n';
+    log.flush();
 }
 
 }  // namespace
@@ -122,6 +147,16 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
 
     SetTimer(overlay.handle(), kUpdateTimerId, kUpdateIntervalMs, nullptr);
 
+    std::ofstream debugLog;
+    if (config.debugLog) {
+        debugLog.open("apm_tracker.log", std::ios::app);
+        debugLog << "--- started; hooks_installed=1 filter="
+                 << (filterInput ? 1 : 0)
+                 << " game_process_name=" << config.gameProcessName << '\n';
+        debugLog.flush();
+    }
+    ULONGLONG lastLogTick = GetTickCount64();
+
     MSG msg;
     while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
         if (msg.message == WM_TIMER && msg.wParam == kUpdateTimerId) {
@@ -134,6 +169,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
             // Keep the overlay above late-created topmost windows.
             SetWindowPos(overlay.handle(), HWND_TOPMOST, 0, 0, 0, 0,
                          SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            if (debugLog.is_open() && GetTickCount64() - lastLogTick >= 5000) {
+                lastLogTick = GetTickCount64();
+                writeDebugLog(debugLog, calculator.stats(), gameFocused);
+            }
         }
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
