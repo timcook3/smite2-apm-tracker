@@ -15,7 +15,7 @@
 namespace {
 
 constexpr UINT_PTR kUpdateTimerId = 1;
-constexpr UINT kUpdateIntervalMs = 250;
+constexpr UINT kUpdateIntervalMs = 50;  // window scan / display refresh rate
 
 std::wstring formatRate(double perMinute) {
     return std::to_wstring(static_cast<long long>(std::llround(perMinute)));

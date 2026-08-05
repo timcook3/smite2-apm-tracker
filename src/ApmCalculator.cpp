@@ -109,16 +109,17 @@ void ApmCalculator::evict(Clock::time_point now) {
     }
 }
 
-double ApmCalculator::windowRate(size_t count, Clock::time_point now) const {
-    const auto elapsed =
-        std::chrono::duration_cast<std::chrono::milliseconds>(now - sessionStart_);
+double ApmCalculator::windowRate(size_t count, Clock::time_point) const {
+    // True rolling-window rate: actions in the last `window_`, normalized to
+    // one minute. No extrapolation from short elapsed times — extrapolating
+    // (count / elapsed) early in a session produces wild spikes (5 actions in
+    // 2 s would read 150 APM) and pollutes peak APM.
     const auto windowMs = std::chrono::duration_cast<std::chrono::milliseconds>(window_);
-    const double effectiveMs =
-        static_cast<double>(elapsed < windowMs ? elapsed.count() : windowMs.count());
-    if (effectiveMs <= 0.0) {
+    if (windowMs.count() <= 0) {
         return 0.0;
     }
-    return static_cast<double>(count) * 60000.0 / effectiveMs;
+    return static_cast<double>(count) * 60000.0 /
+           static_cast<double>(windowMs.count());
 }
 
 }  // namespace apm
