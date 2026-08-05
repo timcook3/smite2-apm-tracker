@@ -24,6 +24,12 @@ public:
     // delayed.
     using ActionCallback = std::function<void(int actionId, unsigned ageMs)>;
 
+    // Total raw events the hooks have received since install, regardless of
+    // any filtering done by the callback. For diagnostics: if this stays 0
+    // while the user is pressing keys, Windows is not delivering input to
+    // the hooks at all (e.g. an elevated process has focus).
+    static unsigned long long rawEventCount();
+
     InputHook() = default;
     ~InputHook();
 

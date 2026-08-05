@@ -11,6 +11,7 @@ namespace {
 HHOOK g_keyboardHook = nullptr;
 HHOOK g_mouseHook = nullptr;
 InputHook::ActionCallback g_callback;
+unsigned long long g_rawEvents = 0;
 
 // Milliseconds elapsed since the event's timestamp. The event time can
 // read slightly *ahead* of GetTickCount() (both are tick-based but can be
@@ -37,6 +38,7 @@ void uninstallGlobals() {
 
 LRESULT CALLBACK keyboardProc(int code, WPARAM wParam, LPARAM lParam) {
     if (code == HC_ACTION && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)) {
+        ++g_rawEvents;
         const auto* info = reinterpret_cast<const KBDLLHOOKSTRUCT*>(lParam);
         // Ignore injected events (e.g. from macro software).
         if (!(info->flags & LLKHF_INJECTED) && g_callback) {
@@ -53,6 +55,7 @@ LRESULT CALLBACK mouseProc(int code, WPARAM wParam, LPARAM lParam) {
             case WM_RBUTTONDOWN:
             case WM_MBUTTONDOWN:
             case WM_XBUTTONDOWN: {
+                ++g_rawEvents;
                 const auto* info = reinterpret_cast<const MSLLHOOKSTRUCT*>(lParam);
                 if (!(info->flags & LLMHF_INJECTED) && g_callback) {
                     int button = 0;
@@ -94,6 +97,10 @@ bool InputHook::install(ActionCallback onAction) {
     }
     installed_ = true;
     return true;
+}
+
+unsigned long long InputHook::rawEventCount() {
+    return g_rawEvents;
 }
 
 void InputHook::uninstall() {

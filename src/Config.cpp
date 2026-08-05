@@ -73,6 +73,8 @@ Config Config::load(const std::string& path) {
             parseBool(value, config.autoDetectServer);
         } else if (key == "only_count_game_input") {
             parseBool(value, config.onlyCountGameInput);
+        } else if (key == "debug_log") {
+            parseBool(value, config.debugLog);
         } else if (key == "game_process_name") {
             config.gameProcessName = value;
         } else if (key == "ping_host") {

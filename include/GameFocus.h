@@ -22,6 +22,10 @@ public:
     // True if the current foreground window belongs to the game process.
     bool isGameFocused();
 
+    // Executable base name of the current foreground process (empty if it
+    // cannot be determined). For diagnostics.
+    static std::wstring foregroundProcessName();
+
 private:
     const std::wstring processName_;
     DWORD cachedPid_ = 0;
