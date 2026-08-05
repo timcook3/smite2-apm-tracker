@@ -36,9 +36,11 @@ std::wstring formatDuration(std::chrono::seconds duration) {
 }
 
 apm::OverlayState buildState(const apm::ApmStats& stats,
-                             const apm::PingMonitor::Result& ping) {
+                             const apm::PingMonitor::Result& ping,
+                             bool gameFocused) {
     apm::OverlayState state;
     state.tracking = stats.tracking;
+    state.gameFocused = gameFocused;
     state.sessionTime = formatDuration(stats.sessionDuration);
     state.apm = formatRate(stats.currentApm);
     state.averageApm = formatRate(stats.averageApm);
@@ -67,7 +69,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     calculator.start();  // begin tracking immediately; buttons control it
 
     // Low-level hooks deliver events on this thread (via the message loop),
-    // so the focus filter needs no synchronization.
+    // so the focus filter needs no synchronization. Its per-event cost is a
+    // foreground-window PID check; the process name lookup happens only when
+    // the foreground PID changes.
     apm::GameFocus gameFocus{toWide(config.gameProcessName)};
     const bool filterInput = config.onlyCountGameInput;
 
@@ -121,7 +125,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     MSG msg;
     while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
         if (msg.message == WM_TIMER && msg.wParam == kUpdateTimerId) {
-            overlay.setState(buildState(calculator.stats(), pingMonitor.latest()));
+            const bool gameFocused = !filterInput || gameFocus.isGameFocused();
+            overlay.setState(
+                buildState(calculator.stats(), pingMonitor.latest(), gameFocused));
             if (heatmap.visible()) {
                 heatmap.setCounts(calculator.keyCounts());
             }
