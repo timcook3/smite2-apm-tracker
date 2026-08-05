@@ -1,7 +1,7 @@
 #include <windows.h>
 
+#include <chrono>
 #include <cmath>
-#include <memory>
 #include <string>
 
 #include "ApmCalculator.h"
@@ -15,19 +15,26 @@ namespace {
 constexpr UINT_PTR kUpdateTimerId = 1;
 constexpr UINT kUpdateIntervalMs = 250;
 
-std::wstring formatApmLine(double apm) {
-    return L"APM  " + std::to_wstring(static_cast<long long>(std::llround(apm)));
+std::wstring formatRate(double perMinute) {
+    return std::to_wstring(static_cast<long long>(std::llround(perMinute)));
 }
 
-std::wstring formatPingLine(const apm::PingMonitor::Result& result) {
-    if (!result.valid) {
-        return L"Ping  --";
+apm::OverlayState buildState(const apm::ApmStats& stats,
+                             const apm::PingMonitor::Result& ping) {
+    apm::OverlayState state;
+    state.tracking = stats.tracking;
+    state.apm = formatRate(stats.currentApm);
+    state.averageApm = formatRate(stats.averageApm);
+    state.peakApm = formatRate(stats.peakApm);
+    state.eapm = formatRate(stats.currentEapm);
+    if (ping.valid) {
+        state.ping = std::to_wstring(ping.latencyMs) + L" ms";
+        state.pingIsFallback = ping.source == apm::PingMonitor::Source::FallbackHost;
+    } else {
+        state.ping = L"--";
+        state.pingIsFallback = false;
     }
-    // Mark fallback-host measurements so it is clear when the value is not
-    // the actual game-server latency.
-    const wchar_t* suffix =
-        (result.source == apm::PingMonitor::Source::FallbackHost) ? L" ms*" : L" ms";
-    return L"Ping  " + std::to_wstring(result.latencyMs) + suffix;
+    return state;
 }
 
 }  // namespace
@@ -36,17 +43,17 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     const apm::Config config = apm::Config::load("config.ini");
 
     apm::ApmCalculator calculator{std::chrono::seconds(config.apmWindowSeconds)};
+    calculator.start();  // begin tracking immediately; buttons control it
 
     apm::InputHook inputHook;
-    if (!inputHook.install([&calculator] { calculator.recordAction(); })) {
+    if (!inputHook.install([&calculator](int actionId) { calculator.recordAction(actionId); })) {
         MessageBoxW(nullptr, L"Failed to install keyboard/mouse hooks.",
                     L"Smite 2 APM Tracker", MB_ICONERROR);
         return 1;
     }
 
     apm::PingMonitor pingMonitor{config};
-    const bool pingAvailable = pingMonitor.start();
-    if (!pingAvailable) {
+    if (!pingMonitor.start()) {
         MessageBoxW(nullptr,
                     L"Ping monitor could not start (networking unavailable).\n"
                     L"The overlay will show APM only.",
@@ -54,7 +61,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     }
 
     apm::OverlayWindow overlay;
-    if (!overlay.create(instance, config.overlayX, config.overlayY, config.fontSize)) {
+    const bool created = overlay.create(
+        instance, config.overlayX, config.overlayY, config.fontSize,
+        [&calculator] { calculator.start(); },
+        [&calculator] { calculator.stop(); });
+    if (!created) {
         MessageBoxW(nullptr, L"Failed to create overlay window.",
                     L"Smite 2 APM Tracker", MB_ICONERROR);
         return 1;
@@ -65,8 +76,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     MSG msg;
     while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
         if (msg.message == WM_TIMER && msg.wParam == kUpdateTimerId) {
-            overlay.setText(formatApmLine(calculator.currentApm()),
-                            formatPingLine(pingMonitor.latest()));
+            overlay.setState(buildState(calculator.stats(), pingMonitor.latest()));
             // Keep the overlay above late-created topmost windows.
             SetWindowPos(overlay.handle(), HWND_TOPMOST, 0, 0, 0, 0,
                          SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);

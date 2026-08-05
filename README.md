@@ -1,8 +1,11 @@
 # Smite 2 APM Tracker
 
-A lightweight Windows overlay for Smite 2 that shows your live **APM**
-(actions per minute, from global keyboard/mouse hooks) and your current
-**ping**, rendered as a transparent, click-through, always-on-top window.
+A lightweight Windows overlay for Smite 2 styled after the game's own UI
+(dark panel, gold accents). It shows live **APM**, **average APM**, **peak
+APM**, **EAPM** (effective APM — rapid repeats of the same input are not
+counted), and your current **ping**, with **Start / Stop** buttons to
+control the tracking session. The panel is always-on-top and can be dragged
+anywhere on screen.
 
 Works with Smite 2 in **borderless windowed** mode (recommended). Like all
 external overlays, it cannot draw over exclusive fullscreen.
@@ -13,10 +16,10 @@ external overlays, it cannot draw over exclusive fullscreen.
 | --- | --- |
 | `Config` | Loads `config.ini` (ping host, intervals, overlay position/size) |
 | `InputHook` | Global `WH_KEYBOARD_LL` / `WH_MOUSE_LL` hooks; counts key and mouse-button presses |
-| `ApmCalculator` | Thread-safe sliding-window APM computation |
+| `ApmCalculator` | Thread-safe session stats: current/average/peak APM and EAPM, with start/stop control |
 | `ServerDetector` | Finds the Smite 2 process and its established server connections |
 | `PingMonitor` | Measures RTT to the detected server (TCP handshake probe, ICMP fallback), or to a configured fallback host |
-| `OverlayWindow` | Layered (`UpdateLayeredWindow`), topmost, click-through GDI overlay |
+| `OverlayWindow` | Layered (`UpdateLayeredWindow`), topmost, draggable Smite 2-styled panel with Start/Stop buttons |
 | `main` | Wires the modules together and runs the message loop |
 
 ## How ping is measured
@@ -57,8 +60,18 @@ cmake --build build
 ```
 
 The result is a single static `smite2_apm_tracker.exe`. Put `config.ini`
-next to it and run it before or during a game session. Close it from Task
-Manager or by ending the process (it has no visible window chrome by design).
+next to it and run it before or during a game session. Tracking starts
+automatically; use the Stop/Start buttons to freeze or reset a session.
+Drag the panel to reposition it. Close it from Task Manager or by ending
+the process (it has no visible window chrome by design).
+
+## Stats
+
+- **APM** — actions in the sliding window (default 60 s), per minute.
+- **Average APM** — total actions over the whole session.
+- **Peak APM** — highest sliding-window APM observed this session.
+- **EAPM** — effective APM: repeats of the same key/button within 500 ms
+  count only once, filtering out spam clicking/key mashing.
 
 ## Configuration
 

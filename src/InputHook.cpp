@@ -29,7 +29,7 @@ LRESULT CALLBACK keyboardProc(int code, WPARAM wParam, LPARAM lParam) {
         const auto* info = reinterpret_cast<const KBDLLHOOKSTRUCT*>(lParam);
         // Ignore injected events (e.g. from macro software).
         if (!(info->flags & LLKHF_INJECTED) && g_callback) {
-            g_callback();
+            g_callback(static_cast<int>(info->vkCode));
         }
     }
     return CallNextHookEx(nullptr, code, wParam, lParam);
@@ -44,7 +44,16 @@ LRESULT CALLBACK mouseProc(int code, WPARAM wParam, LPARAM lParam) {
             case WM_XBUTTONDOWN: {
                 const auto* info = reinterpret_cast<const MSLLHOOKSTRUCT*>(lParam);
                 if (!(info->flags & LLMHF_INJECTED) && g_callback) {
-                    g_callback();
+                    int button = 0;
+                    switch (wParam) {
+                        case WM_LBUTTONDOWN: button = 0; break;
+                        case WM_RBUTTONDOWN: button = 1; break;
+                        case WM_MBUTTONDOWN: button = 2; break;
+                        default:  // WM_XBUTTONDOWN: XBUTTON1/2 in high word
+                            button = 2 + HIWORD(info->mouseData);
+                            break;
+                    }
+                    g_callback(InputHook::kMouseActionBase + button);
                 }
                 break;
             }
