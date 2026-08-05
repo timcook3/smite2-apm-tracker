@@ -12,10 +12,15 @@ HHOOK g_keyboardHook = nullptr;
 HHOOK g_mouseHook = nullptr;
 InputHook::ActionCallback g_callback;
 
-// Milliseconds elapsed since the event's timestamp (GetTickCount-based;
-// DWORD subtraction handles the 49.7-day wraparound).
+// Milliseconds elapsed since the event's timestamp. The event time can
+// read slightly *ahead* of GetTickCount() (both are tick-based but can be
+// snapshotted a granule apart), in which case the DWORD subtraction wraps
+// to a huge value; treat anything implausible as "just now" so an event is
+// never mistakenly backdated out of the APM window.
 unsigned eventAgeMs(DWORD eventTime) {
-    return static_cast<unsigned>(GetTickCount() - eventTime);
+    constexpr DWORD kMaxPlausibleAgeMs = 10000;
+    const DWORD age = GetTickCount() - eventTime;
+    return age <= kMaxPlausibleAgeMs ? age : 0;
 }
 
 void uninstallGlobals() {

@@ -33,9 +33,16 @@ void ApmCalculator::recordAction(int actionId, unsigned ageMs) {
     if (!tracking_) {
         return;
     }
-    // Reconstruct when the event physically happened. Events arrive in
-    // order, so the deques stay sorted.
-    const auto eventTime = Clock::now() - std::chrono::milliseconds(ageMs);
+    // Reconstruct when the event physically happened, clamped into the
+    // session and kept monotonic so the deques stay sorted no matter what
+    // the reported age is.
+    auto eventTime = Clock::now() - std::chrono::milliseconds(ageMs);
+    if (eventTime < sessionStart_) {
+        eventTime = sessionStart_;
+    }
+    if (!actions_.empty() && eventTime < actions_.back()) {
+        eventTime = actions_.back();
+    }
     actions_.push_back(eventTime);
     ++totalActions_;
     if (actionId >= 0 && actionId < static_cast<int>(keyCounts_.size())) {
