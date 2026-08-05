@@ -12,6 +12,12 @@ HHOOK g_keyboardHook = nullptr;
 HHOOK g_mouseHook = nullptr;
 InputHook::ActionCallback g_callback;
 
+// Milliseconds elapsed since the event's timestamp (GetTickCount-based;
+// DWORD subtraction handles the 49.7-day wraparound).
+unsigned eventAgeMs(DWORD eventTime) {
+    return static_cast<unsigned>(GetTickCount() - eventTime);
+}
+
 void uninstallGlobals() {
     if (g_keyboardHook) {
         UnhookWindowsHookEx(g_keyboardHook);
@@ -29,7 +35,7 @@ LRESULT CALLBACK keyboardProc(int code, WPARAM wParam, LPARAM lParam) {
         const auto* info = reinterpret_cast<const KBDLLHOOKSTRUCT*>(lParam);
         // Ignore injected events (e.g. from macro software).
         if (!(info->flags & LLKHF_INJECTED) && g_callback) {
-            g_callback(static_cast<int>(info->vkCode));
+            g_callback(static_cast<int>(info->vkCode), eventAgeMs(info->time));
         }
     }
     return CallNextHookEx(nullptr, code, wParam, lParam);
@@ -53,7 +59,7 @@ LRESULT CALLBACK mouseProc(int code, WPARAM wParam, LPARAM lParam) {
                             button = 2 + HIWORD(info->mouseData);
                             break;
                     }
-                    g_callback(InputHook::kMouseActionBase + button);
+                    g_callback(InputHook::kMouseActionBase + button, eventAgeMs(info->time));
                 }
                 break;
             }

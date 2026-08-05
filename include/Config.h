@@ -12,8 +12,13 @@ struct Config {
     // actual server. When false, it always pings `pingHost`.
     bool autoDetectServer = true;
 
-    // Executable name of the game process used for auto-detection.
+    // Executable name of the game process, used for server auto-detection
+    // and for the game-focus input filter.
     std::string gameProcessName = "Smite2-Win64-Shipping.exe";
+
+    // When true (default), inputs are only counted while the game window is
+    // in the foreground; typing in other apps does not affect APM.
+    bool onlyCountGameInput = true;
 
     // Fallback host pinged when the game process or its server connection
     // cannot be found (or when auto-detection is disabled).

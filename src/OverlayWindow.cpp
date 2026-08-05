@@ -119,13 +119,14 @@ LRESULT OverlayWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
 }
 
 bool OverlayWindow::create(HINSTANCE instance, int x, int y, int fontSize,
-                           ButtonCallback onStart, ButtonCallback onStop) {
+                           ButtonCallback onStart, ButtonCallback onStop,
+                           ButtonCallback onHeatmap) {
     if (hwnd_) {
         return false;
     }
     scale_ = fontSize;
     width_ = scale_ * 15;
-    height_ = scale_ * 16;
+    height_ = scale_ * 18;
 
     WNDCLASSW wc{};
     wc.lpfnWndProc = wndProc;
@@ -159,6 +160,7 @@ bool OverlayWindow::create(HINSTANCE instance, int x, int y, int fontSize,
     buttons_.clear();
     buttons_.push_back(Button{RECT{}, L"START", true, false, std::move(onStart)});
     buttons_.push_back(Button{RECT{}, L"STOP", false, false, std::move(onStop)});
+    buttons_.push_back(Button{RECT{}, L"HEATMAP", true, false, std::move(onHeatmap)});
     layoutButtons();
 
     ShowWindow(hwnd_, SW_SHOWNOACTIVATE);
@@ -167,13 +169,18 @@ bool OverlayWindow::create(HINSTANCE instance, int x, int y, int fontSize,
 }
 
 void OverlayWindow::layoutButtons() {
+    // Start and Stop side by side, Heatmap full-width below them.
     const int margin = scale_ * 3 / 4;
     const int buttonHeight = scale_ * 2;
     const int buttonWidth = (width_ - margin * 3) / 2;
-    const int top = height_ - margin - buttonHeight;
-    buttons_[0].rect = RECT{margin, top, margin + buttonWidth, top + buttonHeight};
-    buttons_[1].rect = RECT{width_ - margin - buttonWidth, top,
-                            width_ - margin, top + buttonHeight};
+    const int bottomRowTop = height_ - margin - buttonHeight;
+    const int topRowTop = bottomRowTop - margin / 2 - buttonHeight;
+    buttons_[0].rect = RECT{margin, topRowTop, margin + buttonWidth,
+                            topRowTop + buttonHeight};
+    buttons_[1].rect = RECT{width_ - margin - buttonWidth, topRowTop,
+                            width_ - margin, topRowTop + buttonHeight};
+    buttons_[2].rect = RECT{margin, bottomRowTop, width_ - margin,
+                            bottomRowTop + buttonHeight};
 }
 
 int OverlayWindow::buttonAt(int x, int y) const {
@@ -192,6 +199,7 @@ void OverlayWindow::setState(const OverlayState& state) {
     }
     const bool trackingChanged = state.tracking != state_.tracking;
     const bool textChanged =
+        state.sessionTime != state_.sessionTime ||
         state.apm != state_.apm || state.averageApm != state_.averageApm ||
         state.peakApm != state_.peakApm || state.eapm != state_.eapm ||
         state.ping != state_.ping || state.pingIsFallback != state_.pingIsFallback;
@@ -278,6 +286,7 @@ void OverlayWindow::render() {
     const std::wstring pingDisplay =
         state_.pingIsFallback ? state_.ping + L" *" : state_.ping;
     const Row rows[] = {
+        {L"TIME", &state_.sessionTime, false},
         {L"APM", &state_.apm, false},
         {L"AVERAGE APM", &state_.averageApm, false},
         {L"PEAK APM", &state_.peakApm, false},

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <chrono>
 #include <deque>
 #include <mutex>
@@ -14,7 +15,11 @@ struct ApmStats {
     double peakApm = 0.0;      // highest sliding-window APM observed
     double currentEapm = 0.0;  // sliding-window effective APM
     unsigned long long totalActions = 0;
+    std::chrono::seconds sessionDuration{0};
 };
+
+// Number of times each keyboard key (virtual-key code) was pressed.
+using KeyCounts = std::array<unsigned long long, 256>;
 
 // Thread-safe APM (actions per minute) tracker with session control.
 //
@@ -38,13 +43,18 @@ public:
     // until start() is called again.
     void stop();
 
-    // Records one action identified by `actionId` (e.g. virtual-key code)
-    // at the current time. Ignored while stopped.
-    void recordAction(int actionId);
+    // Records one action identified by `actionId` (virtual-key code for
+    // keys) that happened `ageMs` milliseconds ago (from the input hook's
+    // event timestamp, for accuracy under processing delay). Ignored while
+    // stopped.
+    void recordAction(int actionId, unsigned ageMs);
 
     // Atomically computes and returns all statistics. Peak APM is updated
     // as a side effect, so this should be called at a regular cadence.
     ApmStats stats();
+
+    // Per-key press counts for the current session (thread-safe copy).
+    KeyCounts keyCounts();
 
 private:
     // Evicts window entries older than `now - window_`. Caller holds mutex_.
@@ -61,6 +71,7 @@ private:
     std::deque<Clock::time_point> actions_;
     std::deque<Clock::time_point> effectiveActions_;
     unsigned long long totalActions_ = 0;
+    KeyCounts keyCounts_{};
     double peakApm_ = 0.0;
     int lastActionId_ = -1;
     Clock::time_point lastActionTime_{};

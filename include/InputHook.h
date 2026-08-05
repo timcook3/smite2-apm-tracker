@@ -18,7 +18,11 @@ public:
     // their virtual-key code, which is < 256).
     static constexpr int kMouseActionBase = 256;
 
-    using ActionCallback = std::function<void(int actionId)>;
+    // `actionId` identifies the input; `ageMs` is how long ago the event
+    // physically happened (from the hook's own event timestamp), letting
+    // callers reconstruct the exact event time even if hook processing was
+    // delayed.
+    using ActionCallback = std::function<void(int actionId, unsigned ageMs)>;
 
     InputHook() = default;
     ~InputHook();

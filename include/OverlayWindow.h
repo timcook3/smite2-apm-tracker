@@ -11,6 +11,7 @@ namespace apm {
 // Data displayed by the overlay each frame.
 struct OverlayState {
     bool tracking = false;
+    std::wstring sessionTime;
     std::wstring apm;
     std::wstring averageApm;
     std::wstring peakApm;
@@ -22,7 +23,7 @@ struct OverlayState {
 // Always-on-top overlay panel styled after the Smite 2 UI (dark panel,
 // gold hairlines and accents, uppercase gold labels).
 //
-// The panel shows live stats and has Start / Stop buttons. It is a layered
+// The panel shows live stats and has Start / Stop / Heatmap buttons. It is a layered
 // (per-pixel alpha) window; buttons are clickable and the rest of the panel
 // can be dragged to reposition it.
 //
@@ -41,7 +42,8 @@ public:
     // Creates and shows the overlay at (x, y). `fontSize` scales the whole
     // panel. Returns false on failure.
     bool create(HINSTANCE instance, int x, int y, int fontSize,
-                ButtonCallback onStart, ButtonCallback onStop);
+                ButtonCallback onStart, ButtonCallback onStop,
+                ButtonCallback onHeatmap);
 
     // Updates the displayed values and repaints if anything changed.
     void setState(const OverlayState& state);

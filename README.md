@@ -3,9 +3,11 @@
 A lightweight Windows overlay for Smite 2 styled after the game's own UI
 (dark panel, gold accents). It shows live **APM**, **average APM**, **peak
 APM**, **EAPM** (effective APM — rapid repeats of the same input are not
-counted), and your current **ping**, with **Start / Stop** buttons to
-control the tracking session. The panel is always-on-top and can be dragged
-anywhere on screen.
+counted), a **session timer**, and your current **ping**, with **Start /
+Stop** buttons to control the tracking session and a **Heatmap** button
+that opens a keyboard heatmap of the session's key presses. Inputs are only
+counted while the Smite 2 client is the foreground window. Both windows are
+always-on-top and can be dragged anywhere on screen.
 
 Works with Smite 2 in **borderless windowed** mode (recommended). Like all
 external overlays, it cannot draw over exclusive fullscreen.
@@ -15,11 +17,13 @@ external overlays, it cannot draw over exclusive fullscreen.
 | Module | Responsibility |
 | --- | --- |
 | `Config` | Loads `config.ini` (ping host, intervals, overlay position/size) |
-| `InputHook` | Global `WH_KEYBOARD_LL` / `WH_MOUSE_LL` hooks; counts key and mouse-button presses |
+| `InputHook` | Global `WH_KEYBOARD_LL` / `WH_MOUSE_LL` hooks; reports each press with its hook event timestamp for accuracy |
+| `GameFocus` | Filters input to when the Smite 2 window is in the foreground |
 | `ApmCalculator` | Thread-safe session stats: current/average/peak APM and EAPM, with start/stop control |
 | `ServerDetector` | Finds the Smite 2 process and its established server connections |
 | `PingMonitor` | Measures RTT to the detected server (TCP handshake probe, ICMP fallback), or to a configured fallback host |
-| `OverlayWindow` | Layered (`UpdateLayeredWindow`), topmost, draggable Smite 2-styled panel with Start/Stop buttons |
+| `OverlayWindow` | Layered (`UpdateLayeredWindow`), topmost, draggable Smite 2-styled panel with Start/Stop/Heatmap buttons |
+| `HeatmapWindow` | Keyboard heatmap of per-key press counts (white → yellow → orange → red) |
 | `main` | Wires the modules together and runs the message loop |
 
 ## How ping is measured
@@ -72,6 +76,19 @@ the process (it has no visible window chrome by design).
 - **Peak APM** — highest sliding-window APM observed this session.
 - **EAPM** — effective APM: repeats of the same key/button within 500 ms
   count only once, filtering out spam clicking/key mashing.
+- **Time** — how long the current session has been recording.
+
+Accuracy: actions are timestamped with the input hook's own event time
+(not the moment the event is processed), so APM is unaffected by hook
+processing delay, and inputs made outside the game window are excluded
+(`only_count_game_input`).
+
+## Keyboard heatmap
+
+The HEATMAP button toggles a keyboard view where each key shows its press
+count for the session, colored from **white** (least pressed) through
+**yellow** and **orange** to **red** (most pressed); unpressed keys stay
+dark. It updates live while tracking.
 
 ## Configuration
 

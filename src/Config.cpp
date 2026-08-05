@@ -27,6 +27,14 @@ bool parseUnsigned(const std::string& value, unsigned& out) {
     }
 }
 
+void parseBool(const std::string& value, bool& out) {
+    if (value == "true" || value == "1") {
+        out = true;
+    } else if (value == "false" || value == "0") {
+        out = false;
+    }
+}
+
 bool parseInt(const std::string& value, int& out) {
     try {
         out = std::stoi(value);
@@ -62,11 +70,9 @@ Config Config::load(const std::string& path) {
         }
 
         if (key == "auto_detect_server") {
-            if (value == "true" || value == "1") {
-                config.autoDetectServer = true;
-            } else if (value == "false" || value == "0") {
-                config.autoDetectServer = false;
-            }
+            parseBool(value, config.autoDetectServer);
+        } else if (key == "only_count_game_input") {
+            parseBool(value, config.onlyCountGameInput);
         } else if (key == "game_process_name") {
             config.gameProcessName = value;
         } else if (key == "ping_host") {

@@ -11,6 +11,8 @@ endif()
 add_executable(smite2_apm_tracker WIN32
     src/main.cpp
     src/Config.cpp
+    src/GameFocus.cpp
+    src/HeatmapWindow.cpp
     src/InputHook.cpp
     src/ApmCalculator.cpp
     src/PingMonitor.cpp

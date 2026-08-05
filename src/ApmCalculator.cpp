@@ -14,6 +14,7 @@ void ApmCalculator::start() {
     actions_.clear();
     effectiveActions_.clear();
     totalActions_ = 0;
+    keyCounts_.fill(0);
     peakApm_ = 0.0;
     lastActionId_ = -1;
     lastActionTime_ = Clock::time_point{};
@@ -27,24 +28,29 @@ void ApmCalculator::stop() {
     }
 }
 
-void ApmCalculator::recordAction(int actionId) {
+void ApmCalculator::recordAction(int actionId, unsigned ageMs) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!tracking_) {
         return;
     }
-    const auto now = Clock::now();
-    actions_.push_back(now);
+    // Reconstruct when the event physically happened. Events arrive in
+    // order, so the deques stay sorted.
+    const auto eventTime = Clock::now() - std::chrono::milliseconds(ageMs);
+    actions_.push_back(eventTime);
     ++totalActions_;
+    if (actionId >= 0 && actionId < static_cast<int>(keyCounts_.size())) {
+        ++keyCounts_[static_cast<size_t>(actionId)];
+    }
 
-    const bool repeat =
-        actionId == lastActionId_ && (now - lastActionTime_) < kEffectiveRepeatWindow;
+    const bool repeat = actionId == lastActionId_ &&
+                        (eventTime - lastActionTime_) < kEffectiveRepeatWindow;
     if (!repeat) {
-        effectiveActions_.push_back(now);
+        effectiveActions_.push_back(eventTime);
     }
     lastActionId_ = actionId;
-    lastActionTime_ = now;
+    lastActionTime_ = eventTime;
 
-    evict(now);
+    evict(Clock::now());
 }
 
 ApmStats ApmCalculator::stats() {
@@ -76,7 +82,14 @@ ApmStats ApmCalculator::stats() {
         peakApm_ = std::max(peakApm_, stats.currentApm);
     }
     stats.peakApm = peakApm_;
+    stats.sessionDuration =
+        std::chrono::duration_cast<std::chrono::seconds>(now - sessionStart_);
     return stats;
+}
+
+KeyCounts ApmCalculator::keyCounts() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return keyCounts_;
 }
 
 void ApmCalculator::evict(Clock::time_point now) {
