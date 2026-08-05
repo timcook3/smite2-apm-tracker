@@ -7,7 +7,10 @@ counted), a **session timer**, and your current **ping**, with **Start /
 Stop** buttons to control the tracking session and a **Heatmap** button
 that opens a keyboard heatmap of the session's key presses. Inputs are only
 counted while the Smite 2 client is the foreground window. Both windows are
-always-on-top and can be dragged anywhere on screen.
+always-on-top and can be dragged anywhere on screen; the main panel can
+also be resized from its edges/corners (the whole layout scales) and has
+minimize / maximize / close buttons — minimize hides it to the system tray
+(click the tray icon to restore, right-click for Restore/Exit).
 
 Works with Smite 2 in **borderless windowed** mode (recommended). Like all
 external overlays, it cannot draw over exclusive fullscreen.
@@ -66,8 +69,8 @@ cmake --build build
 The result is a single static `smite2_apm_tracker.exe`. Put `config.ini`
 next to it and run it before or during a game session. Tracking starts
 automatically; use the Stop/Start buttons to freeze or reset a session.
-Drag the panel to reposition it. Close it from Task Manager or by ending
-the process (it has no visible window chrome by design).
+Drag the panel to reposition it, drag its edges to resize it, and use the
+header's minimize (to tray) / maximize / close buttons.
 
 ## Stats
 
@@ -82,6 +85,13 @@ Accuracy: actions are timestamped with the input hook's own event time
 (not the moment the event is processed), so APM is unaffected by hook
 processing delay, and inputs made outside the game window are excluded
 (`only_count_game_input`).
+
+The header shows the tracker state: **LIVE** (tracking, game focused),
+**NO GAME** (tracking, but the Smite 2 window is not in the foreground —
+input is not being counted), or **PAUSED** (stopped). If your stats stay at
+0, check for NO GAME: either the game isn't focused or `game_process_name`
+in config.ini doesn't match the game's process name in Task Manager →
+Details. Set `only_count_game_input = false` to count input everywhere.
 
 ## Keyboard heatmap
 

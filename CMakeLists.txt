@@ -21,8 +21,8 @@ add_executable(smite2_apm_tracker WIN32
 )
 
 target_include_directories(smite2_apm_tracker PRIVATE include)
-target_compile_definitions(smite2_apm_tracker PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
-target_link_libraries(smite2_apm_tracker PRIVATE iphlpapi ws2_32 gdi32 user32)
+target_compile_definitions(smite2_apm_tracker PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX _WIN32_WINNT=0x0601)
+target_link_libraries(smite2_apm_tracker PRIVATE iphlpapi ws2_32 gdi32 user32 shell32)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_compile_options(smite2_apm_tracker PRIVATE -Wall -Wextra)
